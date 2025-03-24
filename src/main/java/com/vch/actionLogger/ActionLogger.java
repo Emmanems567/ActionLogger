@@ -1,6 +1,7 @@
 package com.vch.actionLogger;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -210,6 +211,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
         getLogger().info(playerName + " was killed by " + killerEntityName + " at " + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
         logAction(killerEntityName, "DEATH", playerName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
+
+        player.sendMessage(ChatColor.GOLD + "Tu lugar de muerte es " + ChatColor.BLUE + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
 
     }
 
