@@ -1,0 +1,13 @@
+<component name="ArtifactManager">
+  <artifact name="ActionLogger">
+    <output-path>$USER_HOME$/OneDrive/Documentos/ServerPruebasSpigot/plugins</output-path>
+    <root id="root">
+      <element id="archive" name="ActionLogger.jar">
+        <element id="module-output" name="ActionLogger" />
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/src/main/java/META-INF/MANIFEST.MF" />
+        </element>
+      </element>
+    </root>
+  </artifact>
+</component>
