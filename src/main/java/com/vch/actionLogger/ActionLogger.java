@@ -28,60 +28,76 @@ import java.util.Comparator;
 import java.util.Date;
 
 public final class ActionLogger extends JavaPlugin implements Listener {
+
     private final SimpleDateFormat fileDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     private final SimpleDateFormat logDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+
+    private final int MAX_LOGS = 500;
+    private final ArrayList<String> logs = new ArrayList<String>();
 
     @Override
     public void onEnable() {
         Bukkit.getPluginManager().registerEvents(this, this);
-        cleanOldLogs();  // Limpiar archivos antiguos al iniciar
+        cleanOldLogs();
+    }
+
+    @Override
+    public void onDisable() {
+        writeActions();
     }
 
     private File getLogFile() {
         String dateStr = fileDateFormat.format(new Date());
         File folder = new File(getDataFolder(), "ActionLogs");
-
-        if (!folder.exists()) {
-            folder.mkdirs();
-        }
-
+        if(!folder.exists()) folder.mkdirs();
         return new File(folder, "action_logs_" + dateStr + ".txt");
     }
 
-    private void logAction(String player, String eventType, String block, int x, int y, int z) {
-        String timestamp = logDateFormat.format(new Date());
-        String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d", timestamp, player, eventType, block, x, y, z);
+    private void writeActions() {
 
         File logFile = getLogFile();
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
-            writer.write(logEntry);
-            writer.newLine();
-        } catch (IOException e) {
+        try(BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+            for(String log : logs) {
+                writer.write(log);
+                writer.newLine();
+            }
+        } 
+        catch(IOException e) {
             getLogger().severe("Error al escribir en el archivo de logs");
             e.printStackTrace();
         }
 
-        cleanOldLogs();  // Revisa si se debe borrar algo después de escribir
+        cleanOldLogs();
+        logs.clear();
+
+    }
+
+    private void logAction(String player, String eventType, String block, int x, int y, int z) {
+        
+        String timestamp = logDateFormat.format(new Date());
+        String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d", timestamp, player, eventType, block, x, y, z);
+        logs.add(logEntry);
+
+        if(logs.size() >= MAX_LOGS)
+            writeActions();
+
     }
 
     private void cleanOldLogs() {
-        File folder = new File(getDataFolder(), "ActionLogs");
 
-        if (!folder.exists()) return;
+        File folder = new File(getDataFolder(), "ActionLogs");
+        if(!folder.exists()) return;
 
         File[] files = folder.listFiles((dir, name) -> name.startsWith("action_logs_") && name.endsWith(".txt"));
+        if(files == null || files.length <= 15) return;
 
-        if (files == null || files.length <= 15) return;
-
-        // Ordenar por fecha de modificación ascendente (el más viejo primero)
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
 
-        for (int i = 0; i < files.length - 15; i++) {
-            if (!files[i].delete()) {
+        for(int i = 0; i < files.length - 15; i++)
+            if(!files[i].delete())
                 getLogger().warning("No se pudo eliminar el archivo de log viejo: " + files[i].getName());
-            }
-        }
+
     }
 
     @EventHandler
@@ -92,7 +108,6 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-
         logAction(player, "BREAK", blockType, x, y, z);
     }
 
@@ -104,38 +119,37 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-
         logAction(player, "PLACE", blockType, x, y, z);
     }
 
     @EventHandler
     public void onInventoryOpen(InventoryOpenEvent event) {
-        InventoryType type = event.getInventory().getType();
 
-        // Asegurarnos que el inventario tiene una ubicación en el mundo (evita virtuales)
-        if (event.getInventory().getLocation() == null) return;
+        InventoryType type = event.getInventory().getType();
+        if(event.getInventory().getLocation() == null) return;
 
         String player = event.getPlayer().getName();
         int x = event.getInventory().getLocation().getBlockX();
         int y = event.getInventory().getLocation().getBlockY();
         int z = event.getInventory().getLocation().getBlockZ();
 
-        // Ahora lo dejamos genérico
         String container = type.name();
-
         logAction(player, "OPEN", container, x, y, z);
+
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+
         InventoryType type = event.getInventory().getType();
+        if(event.getInventory().getLocation() == null) return;
 
-        if (event.getInventory().getLocation() == null) return;
+        if(event.isShiftClick() || event.getAction().name().contains("PICKUP")) {
 
-        // Solo si el jugador saca cosas (Shift-click o pickup normal)
-        if (event.isShiftClick() || event.getAction().name().contains("PICKUP")) {
             ItemStack item = event.getCurrentItem();
+
             if (item != null && item.getType() != Material.AIR) {
+                
                 String player = event.getWhoClicked().getName();
                 int x = event.getInventory().getLocation().getBlockX();
                 int y = event.getInventory().getLocation().getBlockY();
@@ -144,38 +158,57 @@ public final class ActionLogger extends JavaPlugin implements Listener {
                 String container = type.name();
                 String itemName = item.getType().toString();
 
-                // Queda registrado el TAKE con el nombre del ítem y tipo de contenedor
                 logAction(player, "TAKE_" + container, itemName, x, y, z);
+
             }
+
         }
+
     }
 
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // Solo si el que daña es un jugador
-        if (!(event.getDamager() instanceof Player)) return;
+
+        if(!(event.getDamager() instanceof Player)) return;
 
         Player player = (Player) event.getDamager();
         Entity entity = event.getEntity();
-
-        // Solo nos interesan entidades vivientes
-        if (!(entity instanceof LivingEntity)) return;
+        if(!(entity instanceof LivingEntity)) return;
 
         LivingEntity living = (LivingEntity) entity;
-
-        // Si el daño no la mata, salimos
-        if (living.getHealth() - event.getFinalDamage() > 0) return;
+        if(living.getHealth() - event.getFinalDamage() > 0) return;
 
         EntityType type = entity.getType();
-
-        // Validamos si es una entidad que queremos rastrear
-        if (!isTrackedEntity(type)) return;
+        if(!isTrackedEntity(type)) return;
 
         int x = entity.getLocation().getBlockX();
         int y = entity.getLocation().getBlockY();
         int z = entity.getLocation().getBlockZ();
-
         logAction(player.getName(), "KILL", type.name(), x, y, z);
+
+    }
+
+    @EventHandler
+    private void onPlayerDeath(PlayerDeathEvent event) {
+        
+        Player player = event.getEntity();
+        String playerName = player.getName();
+        
+        String killerEntityName = "Environment";
+        Player killerPlayer = player.getKiller();
+
+        if(killerPlayer != null) {
+            killerEntityName = killerPlayer.getName();
+        } 
+        else if(player.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
+            EntityDamageByEntityEvent damageEvent = (EntityDamageByEntityEvent) player.getLastDamageCause();
+            Entity damager = damageEvent.getDamager();
+            killerEntityName = damager.getType().toString();
+        }
+
+        getLogger().info(playerName + " was killed by " + killerEntityName + " at " + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
+        logAction(killerEntityName, "DEATH", playerName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
+
     }
 
     private boolean isTrackedEntity(EntityType type) {
@@ -184,4 +217,5 @@ public final class ActionLogger extends JavaPlugin implements Listener {
             default -> false;
         };
     }
+
 }
