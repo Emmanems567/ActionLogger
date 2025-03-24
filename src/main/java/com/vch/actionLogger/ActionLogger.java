@@ -41,11 +41,36 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         cleanOldLogs();
     }
 
+    @Override
+    public void onDisable() {
+        writeActions();
+    }
+
     private File getLogFile() {
         String dateStr = fileDateFormat.format(new Date());
         File folder = new File(getDataFolder(), "ActionLogs");
         if(!folder.exists()) folder.mkdirs();
         return new File(folder, "action_logs_" + dateStr + ".txt");
+    }
+
+    private void writeActions() {
+
+        File logFile = getLogFile();
+
+        try(BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+            for(String log : logs) {
+                writer.write(log);
+                writer.newLine();
+            }
+        } 
+        catch(IOException e) {
+            getLogger().severe("Error al escribir en el archivo de logs");
+            e.printStackTrace();
+        }
+
+        cleanOldLogs();
+        logs.clear();
+
     }
 
     private void logAction(String player, String eventType, String block, int x, int y, int z) {
@@ -54,25 +79,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d", timestamp, player, eventType, block, x, y, z);
         logs.add(logEntry);
 
-        if(logs.size() >= MAX_LOGS) {
-
-            File logFile = getLogFile();
-
-            try(BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
-                for(String log : logs) {
-                    writer.write(log);
-                    writer.newLine();
-                }
-            } 
-            catch(IOException e) {
-                getLogger().severe("Error al escribir en el archivo de logs");
-                e.printStackTrace();
-            }
-
-            cleanOldLogs();
-            logs.clear();
-
-        }
+        if(logs.size() >= MAX_LOGS)
+            writeActions();
 
     }
 
