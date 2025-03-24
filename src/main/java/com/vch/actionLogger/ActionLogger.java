@@ -188,6 +188,29 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
     }
 
+    @EventHandler
+    private void onPlayerDeath(PlayerDeathEvent event) {
+        
+        Player player = event.getEntity();
+        String playerName = player.getName();
+        
+        String killerEntityName = "Environment";
+        Player killerPlayer = player.getKiller();
+
+        if(killerPlayer != null) {
+            killerEntityName = killerPlayer.getName();
+        } 
+        else if(player.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
+            EntityDamageByEntityEvent damageEvent = (EntityDamageByEntityEvent) player.getLastDamageCause();
+            Entity damager = damageEvent.getDamager();
+            killerEntityName = damager.getType().toString();
+        }
+
+        getLogger().info(playerName + " was killed by " + killerEntityName + " at " + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
+        logAction(killerEntityName, "DEATH", playerName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
+
+    }
+
     private boolean isTrackedEntity(EntityType type) {
         return switch (type) {
             case VILLAGER, WOLF, CAT, PARROT, BEE, AXOLOTL, HORSE, FROG -> true;
