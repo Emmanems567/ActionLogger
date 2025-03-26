@@ -1,4 +1,0 @@
-name: ActionLogger
-version: '1.6'
-main: com.vch.actionLogger.ActionLogger
-api-version: '1.21'

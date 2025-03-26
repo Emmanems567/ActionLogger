@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -213,6 +214,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
         getLogger().log(Level.INFO, "{0} was killed by {1} at {2}, {3}, {4}", new Object[]{playerName, killerEntityName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ()});
         logAction(killerEntityName, "DEATH", playerName, 1, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
+
+        player.sendMessage(ChatColor.GOLD + "Tu lugar de muerte es " + ChatColor.BLUE + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
 
     }
 
