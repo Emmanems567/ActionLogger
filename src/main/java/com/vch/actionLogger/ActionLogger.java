@@ -1,5 +1,16 @@
 package com.vch.actionLogger;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.logging.Level;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -12,28 +23,21 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.Date;
-
 public final class ActionLogger extends JavaPlugin implements Listener {
 
     private final SimpleDateFormat fileDateFormat = new SimpleDateFormat("yyyy-MM-dd");
     private final SimpleDateFormat logDateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
+    private final int MAX_FILES = 30;
     private final int MAX_LOGS = 500;
-    private final ArrayList<String> logs = new ArrayList<String>();
+    private final ArrayList<String> logs = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -73,10 +77,10 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
     }
 
-    private void logAction(String player, String eventType, String block, int x, int y, int z) {
+    private void logAction(String player, String eventType, String block, int amount, int x, int y, int z) {
         
         String timestamp = logDateFormat.format(new Date());
-        String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d", timestamp, player, eventType, block, x, y, z);
+        String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d,%d", timestamp, player, eventType, block, amount, x, y, z);
         logs.add(logEntry);
 
         if(logs.size() >= MAX_LOGS)
@@ -90,13 +94,13 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         if(!folder.exists()) return;
 
         File[] files = folder.listFiles((dir, name) -> name.startsWith("action_logs_") && name.endsWith(".txt"));
-        if(files == null || files.length <= 15) return;
+        if(files == null || files.length <= MAX_FILES) return;
 
         Arrays.sort(files, Comparator.comparingLong(File::lastModified));
 
-        for(int i = 0; i < files.length - 15; i++)
+        for(int i = 0; i < files.length - MAX_FILES; i++)
             if(!files[i].delete())
-                getLogger().warning("No se pudo eliminar el archivo de log viejo: " + files[i].getName());
+                getLogger().log(Level.WARNING, "No se pudo eliminar el archivo de log viejo: {0}", files[i].getName());
 
     }
 
@@ -108,7 +112,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-        logAction(player, "BREAK", blockType, x, y, z);
+        logAction(player, "BREAK", blockType, 1, x, y, z);
     }
 
     @EventHandler
@@ -119,7 +123,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-        logAction(player, "PLACE", blockType, x, y, z);
+        logAction(player, "PLACE", blockType, 1, x, y, z);
     }
 
     @EventHandler
@@ -134,19 +138,20 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = event.getInventory().getLocation().getBlockZ();
 
         String container = type.name();
-        logAction(player, "OPEN", container, x, y, z);
+        logAction(player, "OPEN", container, 1, x, y, z);
 
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-
+        
         InventoryType type = event.getInventory().getType();
         if(event.getInventory().getLocation() == null) return;
 
         if(event.isShiftClick() || event.getAction().name().contains("PICKUP")) {
 
             ItemStack item = event.getCurrentItem();
+            int amount = item == null ? 0 : item.getAmount();
 
             if (item != null && item.getType() != Material.AIR) {
                 
@@ -158,7 +163,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
                 String container = type.name();
                 String itemName = item.getType().toString();
 
-                logAction(player, "TAKE_" + container, itemName, x, y, z);
+                logAction(player, "TAKE_" + container, itemName, amount, x, y, z);
 
             }
 
@@ -184,7 +189,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int x = entity.getLocation().getBlockX();
         int y = entity.getLocation().getBlockY();
         int z = entity.getLocation().getBlockZ();
-        logAction(player.getName(), "KILL", type.name(), x, y, z);
+        logAction(player.getName(), "KILL", type.name(), 1, x, y, z);
 
     }
 
@@ -206,8 +211,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
             killerEntityName = damager.getType().toString();
         }
 
-        getLogger().info(playerName + " was killed by " + killerEntityName + " at " + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
-        logAction(killerEntityName, "DEATH", playerName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
+        getLogger().log(Level.INFO, "{0} was killed by {1} at {2}, {3}, {4}", new Object[]{playerName, killerEntityName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ()});
+        logAction(killerEntityName, "DEATH", playerName, 1, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
 
     }
 
