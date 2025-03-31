@@ -29,6 +29,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -239,6 +240,17 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         getLogger().log(Level.INFO, "{0} was killed by {1} at {2}, {3}, {4}", new Object[]{playerName, killerEntityName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ()});
         logAction(dimension, killerEntityName, "DEATH", playerName, 1, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
 
+    }
+
+    @EventHandler
+    private void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        String playerName = player.getName();
+        String dimension = player.getWorld().getName();
+        int x = player.getLocation().getBlockX();
+        int y = player.getLocation().getBlockY();
+        int z = player.getLocation().getBlockZ();
+        logAction(dimension, playerName, "QUIT", "PLAYER", 1, x, y, z);
     }
 
     private boolean isTrackedEntity(EntityType type) {
