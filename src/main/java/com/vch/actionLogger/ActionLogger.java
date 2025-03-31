@@ -92,7 +92,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
     private void logAction(String dimension, String player, String eventType, String block, int amount, int x, int y, int z) {
         
         String timestamp = logDateFormat.format(new Date());
-        String logEntry = String.format("%s,%s,%s,%s,%s,%d,%d,%d,%d", dimension, timestamp, player, eventType, block, amount, x, y, z);
+        String logEntry = String.format("%s,%s,%s,%s,%s,%d,%d,%d,%d", timestamp, dimension, player, eventType, block, amount, x, y, z);
         logs.add(logEntry);
 
         if(logs.size() >= MAX_LOGS)
