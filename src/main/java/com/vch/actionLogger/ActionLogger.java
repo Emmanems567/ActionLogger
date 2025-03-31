@@ -15,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -42,8 +43,18 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        
         Bukkit.getPluginManager().registerEvents(this, this);
         cleanOldLogs();
+
+        ConsoleCommandSender console = Bukkit.getConsoleSender();
+        String version = this.getDescription().getVersion();
+        console.sendMessage("\n" +
+            ChatColor.GOLD + "==========================" + ChatColor.RESET + "\n" +
+            ChatColor.GREEN + "Action Logger " + version + ChatColor.RESET + "\n" +
+            ChatColor.GOLD + "==========================" + ChatColor.RESET + "\n"
+        );
+
     }
 
     @Override
@@ -70,7 +81,6 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         } 
         catch(IOException e) {
             getLogger().severe("Error al escribir en el archivo de logs");
-            e.printStackTrace();
         }
 
         cleanOldLogs();
@@ -78,10 +88,10 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
     }
 
-    private void logAction(String player, String eventType, String block, int amount, int x, int y, int z) {
+    private void logAction(String dimension, String player, String eventType, String block, int amount, int x, int y, int z) {
         
         String timestamp = logDateFormat.format(new Date());
-        String logEntry = String.format("%s,%s,%s,%s,%d,%d,%d,%d", timestamp, player, eventType, block, amount, x, y, z);
+        String logEntry = String.format("%s,%s,%s,%s,%s,%d,%d,%d,%d", dimension, timestamp, player, eventType, block, amount, x, y, z);
         logs.add(logEntry);
 
         if(logs.size() >= MAX_LOGS)
@@ -113,7 +123,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-        logAction(player, "BREAK", blockType, 1, x, y, z);
+        String dimension = block.getWorld().getName();
+        logAction(dimension, player, "BREAK", blockType, 1, x, y, z);
     }
 
     @EventHandler
@@ -124,7 +135,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int z = block.getZ();
         String player = event.getPlayer().getName();
         String blockType = block.getType().toString();
-        logAction(player, "PLACE", blockType, 1, x, y, z);
+        String dimension = block.getWorld().getName();
+        logAction(dimension, player, "PLACE", blockType, 1, x, y, z);
     }
 
     @EventHandler
@@ -134,12 +146,13 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         if(event.getInventory().getLocation() == null) return;
 
         String player = event.getPlayer().getName();
+        String dimension = event.getInventory().getLocation().getWorld().getName();
         int x = event.getInventory().getLocation().getBlockX();
         int y = event.getInventory().getLocation().getBlockY();
         int z = event.getInventory().getLocation().getBlockZ();
 
         String container = type.name();
-        logAction(player, "OPEN", container, 1, x, y, z);
+        logAction(dimension, player, "OPEN", container, 1, x, y, z);
 
     }
 
@@ -157,6 +170,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
             if (item != null && item.getType() != Material.AIR) {
                 
                 String player = event.getWhoClicked().getName();
+                String dimension = event.getInventory().getLocation().getWorld().getName();
                 int x = event.getInventory().getLocation().getBlockX();
                 int y = event.getInventory().getLocation().getBlockY();
                 int z = event.getInventory().getLocation().getBlockZ();
@@ -164,7 +178,13 @@ public final class ActionLogger extends JavaPlugin implements Listener {
                 String container = type.name();
                 String itemName = item.getType().toString();
 
-                logAction(player, "TAKE_" + container, itemName, amount, x, y, z);
+                if(item.getEnchantments().size() > 0) {
+                    StringBuilder enchantments = new StringBuilder();
+                    item.getEnchantments().forEach((enchantment, level) -> enchantments.append(enchantment.getKeyOrNull().getKey()).append(":").append(level).append(","));
+                    itemName += "{" + enchantments.substring(0, enchantments.length() - 1) + "}";
+                }
+
+                logAction(dimension, player, "TAKE_" + container, itemName, amount, x, y, z);
 
             }
 
@@ -190,7 +210,8 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         int x = entity.getLocation().getBlockX();
         int y = entity.getLocation().getBlockY();
         int z = entity.getLocation().getBlockZ();
-        logAction(player.getName(), "KILL", type.name(), 1, x, y, z);
+        String dimension = entity.getWorld().getName();
+        logAction(dimension, player.getName(), "KILL", type.name(), 1, x, y, z);
 
     }
 
@@ -202,6 +223,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
         
         String killerEntityName = "Environment";
         Player killerPlayer = player.getKiller();
+        String dimension = player.getWorld().getName();
 
         if(killerPlayer != null) {
             killerEntityName = killerPlayer.getName();
@@ -212,10 +234,10 @@ public final class ActionLogger extends JavaPlugin implements Listener {
             killerEntityName = damager.getType().toString();
         }
 
-        getLogger().log(Level.INFO, "{0} was killed by {1} at {2}, {3}, {4}", new Object[]{playerName, killerEntityName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ()});
-        logAction(killerEntityName, "DEATH", playerName, 1, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
-
         player.sendMessage(ChatColor.GOLD + "Tu lugar de muerte es " + ChatColor.BLUE + player.getLocation().getBlockX() + ", " + player.getLocation().getBlockY() + ", " + player.getLocation().getBlockZ());
+
+        getLogger().log(Level.INFO, "{0} was killed by {1} at {2}, {3}, {4}", new Object[]{playerName, killerEntityName, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ()});
+        logAction(dimension, killerEntityName, "DEATH", playerName, 1, player.getLocation().getBlockX(), player.getLocation().getBlockY(), player.getLocation().getBlockZ());
 
     }
 
