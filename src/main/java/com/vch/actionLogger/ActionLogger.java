@@ -181,7 +181,7 @@ public final class ActionLogger extends JavaPlugin implements Listener {
 
                 if(item.getEnchantments().size() > 0) {
                     StringBuilder enchantments = new StringBuilder();
-                    item.getEnchantments().forEach((enchantment, level) -> enchantments.append(enchantment.getKeyOrNull().getKey()).append(":").append(level).append(","));
+                    item.getEnchantments().forEach((enchantment, level) -> enchantments.append(enchantment.getName()).append(":").append(level).append(","));
                     itemName += "{" + enchantments.substring(0, enchantments.length() - 1) + "}";
                 }
 
